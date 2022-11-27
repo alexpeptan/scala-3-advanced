@@ -4,14 +4,14 @@ object Implicits {
 
   // giving/using clauses - the ability to pass arguments automatically(implicitly) by the compiler
   trait Semigroup[A] {
-    def combile(x: A, y: A): A
+    def combine(x: A, y: A): A
   }
 
   def combineAll[A](list: List[A])(/*using*/implicit semigroup: Semigroup[A]): A =
-    list.reduce(semigroup.combile)
+    list.reduce(semigroup.combine)
 
   /*given*/implicit val intSemigroup: Semigroup[Int] /*with*/= new Semigroup[Int] {
-    override def combile(x: Int, y: Int) = x + y
+    override def combine(x: Int, y: Int) = x + y
   }
 
   val sumOf10 = combineAll((1 to 10).toList)
@@ -45,8 +45,8 @@ object Implicits {
   // if I have a semigroup of a plain type in scope:
 
   // implicit def => synthesize NEW implicit values
-  implicit def semigroupOfOption[A](implicit semigroup: Semigroup[A]) = new Semigroup[Option[A]] {
-    override def combile(x: Option[A], y: Option[A]) = for {
+  implicit def semigroupOfOption[A](implicit semigroup: Semigroup[A]): Semigroup[Option[A]] = new Semigroup[Option[A]] {
+    override def combine(x: Option[A], y: Option[A]) = for {
       valueX <- x
       valueY <- y
     } yield semigroup.combine(valueX, valueY)
