@@ -2,6 +2,7 @@ package com.rockthejvm.practice
 
 import java.util.Date
 
+// decoupled and extensible type class based JSON Serialization library for a bunch of case classes
 object JSONSerialization {
   /*
     Users, posts, feeds
@@ -63,11 +64,74 @@ object JSONSerialization {
 
   // part 2 - type class pattern
   // 1 - TC definition
-  // 2 - TC instances for User, Post, Feed
+  trait JSONConverter[T] {
+    def convert(value: T): JSONValue
+  }
+
+  // 2 - TC instances for String, Int, Date, User, Post, Feed
+  given stringConverter: JSONConverter[String] with
+    override def convert(value: String) = new JSONString(value)
+
+  given intConverter: JSONConverter[Int] with
+    override def convert(value: Int) = JSONNumber(value)
+
+  given dateConverter: JSONConverter[Date] with
+    override def convert(value: Date) = JSONString(value.toString)
+
+  given userConverter: JSONConverter[User] with
+    override def convert(user: User) = JSONObject(Map(
+//      "name" -> stringConverter.convert(user.name),
+      "name" -> JSONConverter[String].convert(user.name), // alternative... to using stringConverter -> allows user to define different converters
+//      "age" -> intConverter.convert(user.age),
+      "age" -> JSONConverter[Int].convert(user.age),
+      "email" -> /*stringConverter*/JSONConverter[String].convert(user.email)
+    ))
+
+  given postConverter: JSONConverter[Post] with
+    override def convert(post: Post) = JSONObject(Map(
+      "content" -> JSONConverter[String].convert(post.content),
+      "createdAt" -> JSONConverter[String].convert(post.createdAt.toString)
+    ))
+
+  given feedConverter: JSONConverter[Feed] with
+    override def convert(feed: Feed) = JSONObject(Map(
+//      "user" -> userConverter.convert(feed.user),
+      "user" -> JSONConverter[User].convert(feed.user), // decoupled and extensible type class based JSON Serialization library for a bunch of case classes
+//      "posts" -> JSONArray(feed.posts.map(postConverter.convert(_)))
+      "posts" -> JSONArray(feed.posts.map(JSONConverter[Post].convert(_))) // decoupled and extensible type class based JSON Serialization library for a bunch of case classes
+    ))
+
   // 3 - user-facing API
+  object JSONConverter {
+    def convert[T](value: T)(using converter: JSONConverter[T]): JSONValue =
+      converter.convert(value)
+
+    def apply[T](using instance: JSONConverter[T]): JSONConverter[T] = instance
+  }
+
+  // example
+  val now = new Date(System.currentTimeMillis())
+  val john = User("John", 34, "john@rockthejvm.com")
+  val feed = Feed(john, List(
+    Post("Hello, I'm learning type classes", now),
+    Post("Look at this cute putty", now),
+  ))
+
   // 4 - extension methods
+  object JSONSyntax {
+    extension [T](value: T)
+      def toIntermediate(using converter: JSONConverter[T]): JSONValue =
+        converter.convert(value)
+
+      def toJSON(using converter: JSONConverter[T]): String =
+        toIntermediate.stringify()
+  }
 
   def main(args: Array[String]): Unit = {
-    println(data.stringify())
+//    println(data.stringify())
+    println(JSONConverter.convert(feed).stringify())
+    import JSONSyntax.*
+    println(feed.toIntermediate.stringify()) // identical
+    println(feed.toJSON) // identical - FINAL - ultimate expressiveness!
   }
 }
